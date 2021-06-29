@@ -3,6 +3,8 @@ var express = require("express")
 var path = require("path")
 var cookieParser = require("cookie-parser")
 var logger = require("morgan")
+const session = require("express-session") // can have conflicts with cookie-parser
+const FileStore = require("session-file-store")(session)
 
 var indexRouter = require("./routes/index")
 var usersRouter = require("./routes/users")
@@ -34,11 +36,23 @@ app.set("view engine", "jade")
 app.use(logger("dev"))
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
-app.use(cookieParser("123456789")) //secret string, can be stored as variable
+// app.use(cookieParser("123456789"))
+
+app.use(
+    session({
+        name: "session-id",
+        secret: "123456789",
+        saveUninitialized: false,
+        resave: false,
+        store: new FileStore(),
+    })
+)
 
 function auth(req, res, next) {
-    // signedCookies is provided by cookie-parser, parses from req, if not properly signed returns false
-    if (!req.signedCookies.user) {
+    console.log(req.session)
+
+    // req.session is part of express-session
+    if (!req.session.user) {
         const authHeader = req.headers.authorization
         if (!authHeader) {
             const err = new Error("You are not authenticated")
@@ -52,7 +66,7 @@ function auth(req, res, next) {
             .split(":")
         const [user, pass] = auth
         if (user === "admin" && pass === "password") {
-            res.cookie("user", "admin", { signed: true })
+            req.session.user = "admin"
             return next()
         }
         const err = new Error("You are not authenticated")
@@ -60,7 +74,7 @@ function auth(req, res, next) {
         err.status = 401
         return next(err)
     } else {
-        if(req.signedCookies.user === 'admin') return next()
+        if (req.session.user === "admin") return next()
         else {
             const err = new Error("You are not authenticated")
             err.status = 401
