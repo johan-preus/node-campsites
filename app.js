@@ -34,27 +34,39 @@ app.set("view engine", "jade")
 app.use(logger("dev"))
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
-app.use(cookieParser())
+app.use(cookieParser("123456789")) //secret string, can be stored as variable
 
-function auth(req, res, next){
-    console.log(req.headers);
-    const authHeader = req.headers.authorization
-    if(!authHeader){
-        const err = new Error('You are not authenticated')
-        res.setHeader('WWW-Authenticate', 'Basic') //lets client know that basic auth is being requested
+function auth(req, res, next) {
+    // signedCookies is provided by cookie-parser, parses from req, if not properly signed returns false
+    if (!req.signedCookies.user) {
+        const authHeader = req.headers.authorization
+        if (!authHeader) {
+            const err = new Error("You are not authenticated")
+            res.setHeader("WWW-Authenticate", "Basic") //lets client know that basic auth is being requested
+            err.status = 401
+            return next(err)
+        }
+
+        const auth = Buffer.from(authHeader.split(" ")[1], "base64")
+            .toString()
+            .split(":")
+        const [user, pass] = auth
+        if (user === "admin" && pass === "password") {
+            res.cookie("user", "admin", { signed: true })
+            return next()
+        }
+        const err = new Error("You are not authenticated")
+        res.setHeader("WWW-Authenticate", "Basic")
         err.status = 401
         return next(err)
+    } else {
+        if(req.signedCookies.user === 'admin') return next()
+        else {
+            const err = new Error("You are not authenticated")
+            err.status = 401
+            return next(err)
+        }
     }
-
-    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':')
-    const [user, pass] = auth
-    if(user === 'admin' && pass === 'password'){
-        return next()
-    }
-    const err = new Error('You are not authenticated')
-    res.setHeader('WWW-Authenticate', 'Basic')
-    err.status = 401
-    return next(err)
 }
 
 app.use(auth)
