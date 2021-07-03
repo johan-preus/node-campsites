@@ -7,6 +7,24 @@ const jwt = require("jsonwebtoken")
 
 const config = require("./config")
 
+function verifyAdmin(req, res, next) {
+    if (req.user.admin) return next()
+    const err = new Error("You need admin priviliges for that")
+    err.status = 403
+    return next(err)
+}
+
+// function verifySameUser(req, res, next, target) {
+//     if (req.user._id === target.author) return next()
+//     if (req.user.admin) return next()
+//     res.statusCode = 403
+//     const err = new Error("You don't have permission for that")
+//     return next(err)
+// }
+
+// exports.verifySameUser = verifySameUser
+exports.verifyAdmin = verifyAdmin
+
 exports.local = passport.use(new LocalStrategy(User.authenticate()))
 passport.serializeUser(User.serializeUser())
 passport.deserializeUser(User.deserializeUser())
